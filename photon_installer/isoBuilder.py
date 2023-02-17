@@ -101,7 +101,7 @@ class IsoBuilder(object):
     def downloadPkgs(self):
         if not os.path.exists(self.rpms_path):
             self.logger.info(f"Creating RPMS directory: {self.rpms_path}")
-            os.makedirs(self.rpms_path)
+            os.makedirs(self.rpms_path, exist_ok=True)
 
         # Add installer initrd packages to list apart from flavor specific packages.
         self.addPkgsToList(self.initrd_pkg_list_file)
@@ -131,16 +131,19 @@ class IsoBuilder(object):
                 abs_repo_path = os.path.abspath(repo)
                 additionalRepo += f"--mount  type=bind,source={abs_repo_path},target=/etc/yum.repos.d/{os.path.basename(repo)} "
 
-        # TDNF cmd to download packages in the list from packages.vmware.com/photon.
-        # Using --alldeps option to include all dependencies even though package might be installed on system.
-        tdnf_download_cmd = (f"tdnf --releasever {self.photon_release_version} --alldeps --downloadonly -y "
-                             f"--downloaddir={self.working_dir}/RPMS install {pkg_list}")
-        download_cmd = (f"docker run --privileged --rm {additionalRepo} -v {self.rpms_path}:{self.rpms_path} "
-                        f"-v {self.working_dir}:{self.working_dir} photon:{self.photon_release_version} "
-                        f"/bin/bash -c \"tdnf clean all && tdnf update tdnf -y && {tdnf_download_cmd}\"")
-        self.logger.info("Starting to download packages...")
-        self.logger.debug(f"Starting to download packages:\n{download_cmd}")
-        self.runCmd(download_cmd)
+        # skip downloading if repo already exists
+        if not os.path.isdir(os.path.join(self.rpms_path, 'repodata')):
+            # TDNF cmd to download packages in the list from packages.vmware.com/photon.
+            # Using --alldeps option to include all dependencies even though package might be installed on system.
+            tdnf_download_cmd = (f"tdnf --releasever {self.photon_release_version} --alldeps --downloadonly -y "
+                                 f"--downloaddir={self.working_dir}/RPMS install {pkg_list}")
+            download_cmd = (f"docker run --privileged --rm {additionalRepo} -v {self.rpms_path}:{self.rpms_path} "
+                            f"-v {self.working_dir}:{self.working_dir} photon:{self.photon_release_version} "
+                            f"/bin/bash -c \"tdnf clean all && tdnf update tdnf -y && {tdnf_download_cmd}\"")
+            self.logger.info("Starting to download packages...")
+            self.logger.debug(f"Starting to download packages:\n{download_cmd}")
+            self.runCmd(tdnf_download_cmd)
+            # FIXME: try docker now
 
         # Seperate out packages downloaded into arch specific directories.
         # Run createrepo on the rpm download path once downloaded.
@@ -166,7 +169,8 @@ class IsoBuilder(object):
             self.runCmd(f"ln -sfv {primary_xml_gz[0]} {repoDataDir}/primary.xml.gz")
 
     def cleanUp(self):
-        self.runCmd(["rm", "-rf", self.working_dir])
+#        self.runCmd(["rm", "-rf", self.working_dir])
+        pass
 
     def createEfiImg(self):
         """
@@ -202,10 +206,11 @@ class IsoBuilder(object):
                             f"--rpmverbosity 10 -c {self.working_dir}/tdnf.conf {pkg_list}")
 
         self.logger.debug(tdnf_install_cmd)
+        self.runCmd(tdnf_install_cmd)
         # When using tdnf --installroot or rpm --root on chroot folder without /proc mounted, we must limit number of open files
         # to avoid librpm hang scanning all possible FDs.
-        self.runCmd((f'docker run --privileged --ulimit nofile=1024:1024 --rm -v {self.working_dir}:{self.working_dir}'
-                    f' photon:{self.photon_release_version} /bin/bash -c "{tdnf_install_cmd}"'))
+#        self.runCmd((f'docker run --privileged --ulimit nofile=1024:1024 --rm -v {self.working_dir}:{self.working_dir}'
+#                    f' photon:{self.photon_release_version} /bin/bash -c "{tdnf_install_cmd}"'))
 
         self.logger.debug("Succesfully installed photon-iso-config syslinux...")
         self.runCmd((f"cp {self.working_dir}/isolinux-temp/usr/share/photon-iso-config/* "
