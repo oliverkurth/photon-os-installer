@@ -112,7 +112,7 @@ cat >> ${INITRD}/bin/bootphotoninstaller << EOF
 cd /installer
 ACTIVE_CONSOLE="\$(< /sys/devices/virtual/tty/console/active)"
 install() {
-  LANG=en_US.UTF-8 photon-installer -i iso -o $PACKAGE_LIST_FILE_BASE_NAME -e EULA.txt -t "$LICENSE_TEXT" -v $PHOTON_RELEASE_VER && shutdown -r now
+  LANG=en_US.UTF-8 photon-installer -i iso -o $PACKAGE_LIST_FILE_BASE_NAME -e EULA.txt -t "$LICENSE_TEXT" -v $PHOTON_RELEASE_VER -l /var/log && shutdown -r now
 }
 try_run_installer() {
   if [ "\$ACTIVE_CONSOLE" == "tty0" ]; then
