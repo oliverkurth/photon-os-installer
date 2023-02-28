@@ -5,6 +5,8 @@
 import os
 import logging
 
+LOGFILE=None
+
 class Logger(object):
     @staticmethod
     def string_to_loglevel(loglevel):
@@ -26,6 +28,7 @@ class Logger(object):
                 if not os.path.isdir(logpath):
                     os.makedirs(logpath)
                 logfile = logpath + "/" + logfile
+            LOGFILE = logfile
             fhandler = logging.FileHandler(logfile)
             fhformatter = logging.Formatter('%(asctime)s - %(message)s')
             fhandler.setFormatter(fhformatter)

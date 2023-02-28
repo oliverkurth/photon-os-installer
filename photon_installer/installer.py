@@ -21,7 +21,7 @@ import stat
 import tempfile
 import copy
 import json
-from logger import Logger
+from logger import Logger, LOGFILE
 from commandutils import CommandUtils
 from jsonwrapper import JsonWrapper
 from progressbar import ProgressBar
@@ -481,6 +481,12 @@ class Installer(object):
         del frame1
         if not self.exiting and self.install_config:
             self.exiting = True
+            if LOGFILE and os.path.isfile(LOGFILE):
+                varlog_dir = os.path.join(self.photon_root, 'var/log')
+                if os.path.isdir(varlog_dir):
+                    shutil.copy(LOGFILE, varlog_dir)
+                else:
+                    shutil.copy(LOGFILE, self.photon_root)
             if self.install_config['ui']:
                 self.progress_bar.hide()
                 self.window.addstr(0, 0, 'Oops, Installer got interrupted.\n\n' +
