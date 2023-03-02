@@ -1,0 +1,31 @@
+#
+# Copyright © 2020-2023 VMware, Inc.
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+#
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme =  "post-release"
+write_to =  "photon_installer/_version_generated.py"
+write_to_template = '__version__ = "v{version}"'
+
+[project]
+name = "photon-installer"
+description = "Installer code for photon"
+dependencies = ["Requests", "pyOpenSSL"]
+authors = [
+    {name = "Piyush Gupta", email = "gpiyush@vmware.com"},
+]
+dynamic = ["version"]
+
+[project.scripts]
+photon-installer = "photon_installer.main:main"
+photon-iso-builder = "photon_installer.isoBuilder:main"
+
+[tool.setuptools]
+packages = ["photon_installer"]
+zip-safe = false
+include-package-data = true
