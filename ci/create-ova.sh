@@ -56,7 +56,7 @@ create_ova()
     pushd /workdir
     # TODO: tools version
     vmdk-convert ${OVA_NAME}.img ${OVA_NAME}.vmdk
-    mkova.sh ${OVA_NAME} ./open-vmdk-master/ova/${TEMPLATE} ${OVA_NAME}.vmdk
+    mkova.sh --template /usr/share/open-vmdk/${TEMPLATE} ${OVA_NAME} ${OVA_NAME}.vmdk
     popd
 }
 
