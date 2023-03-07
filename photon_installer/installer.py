@@ -155,10 +155,26 @@ class Installer(object):
         self.install_config = install_config
 
         self.ab_present = self._is_ab_present()
-
+        self._calc_size_percentages()
         self._insert_boot_partitions()
-
         self._add_shadow_partitions()
+
+
+    def _calc_size_percentages(self):
+        partitions = self.install_config['partitions']
+        disk_sizes = {}
+        for partition in partitions:
+            if not 'sizepercent' in partition:
+                continue
+            size_percent = partition['sizepercent']
+            disk = partition.get('disk', self.install_config.get('disk', None))
+            if not disk in disk_sizes:
+                retval, disk_sizes[disk] = CommandUtils.get_disk_size_bytes(disk)
+                if retval != 0:
+                    self.logger.info("Error code: {}".format(retval))
+                    raise Exception("Failed to get disk {0} size".format(disk))
+                disk_sizes[disk] = int(disk_sizes[disk])
+            partition['size'] = int(disk_sizes[disk] * size_percent / (100 * 1024**2))
 
 
     def execute(self):
@@ -329,12 +345,17 @@ class Installer(object):
             mntpoint = partition.get('mountpoint', '')
             if disk not in has_extensible:
                 has_extensible[disk] = False
-            size = partition['size']
-            if size == 0:
-                if has_extensible[disk]:
-                    return "Disk {} has more than one extensible partition".format(disk)
-                else:
-                    has_extensible[disk] = True
+            if 'size' not in partition and 'sizepercent' not in partition:
+                return "Need to specify 'size' or 'sizepercent'"
+            if 'size' in partition:
+                if 'sizepercent' in partition:
+                    return "Only one of 'size' or 'sizepercent' can be specified"
+                size = partition['size']
+                if size == 0:
+                    if has_extensible[disk]:
+                        return "Disk {} has more than one extensible partition".format(disk)
+                    else:
+                        has_extensible[disk] = True
             if mntpoint != '':
                 mountpoints.append(mntpoint)
             if mntpoint == '/boot' and 'lvm' in partition:
