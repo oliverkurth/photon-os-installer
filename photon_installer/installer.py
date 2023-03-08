@@ -343,11 +343,16 @@ class Installer(object):
         for partition in install_config['partitions']:
             disk = partition.get('disk', default_disk)
             mntpoint = partition.get('mountpoint', '')
+
             if disk not in has_extensible:
                 has_extensible[disk] = False
+
             if 'size' not in partition and 'sizepercent' not in partition:
                 return "Need to specify 'size' or 'sizepercent'"
+
             if 'size' in partition:
+                if type(partition['size']) != int:
+                    return "'size' must be an integer"
                 if 'sizepercent' in partition:
                     return "Only one of 'size' or 'sizepercent' can be specified"
                 size = partition['size']
@@ -356,6 +361,15 @@ class Installer(object):
                         return "Disk {} has more than one extensible partition".format(disk)
                     else:
                         has_extensible[disk] = True
+
+            if 'sizepercent' in partition:
+                if type(partition['sizepercent']) != int:
+                    return "'sizepercent' must be an integer"
+                if partition['sizepercent'] <= 0:
+                    return "'sizepercent' must be greater than 0"
+                elif partition['sizepercent'] > 100:
+                    return "'sizepercent' must not be greater than 100"
+
             if mntpoint != '':
                 mountpoints.append(mntpoint)
             if mntpoint == '/boot' and 'lvm' in partition:
