@@ -155,26 +155,48 @@ class Installer(object):
         self.install_config = install_config
 
         self.ab_present = self._is_ab_present()
+        self._get_disk_sizes()
         self._calc_size_percentages()
         self._insert_boot_partitions()
         self._add_shadow_partitions()
+        self._check_disk_space()
+
+
+    def _get_disk_sizes(self):
+        partitions = self.install_config['partitions']
+        disk_sizes = {}
+        all_disks = set([p.get('disk', self.install_config['disk']) for p in partitions])
+        for disk in all_disks:
+            retval, size = CommandUtils.get_disk_size_bytes(disk)
+            if retval != 0:
+                self.logger.info("Error code: {}".format(retval))
+                raise Exception(f"Failed to get disk {disk} size")
+            disk_sizes[disk] = int(size)
+        self.disk_sizes = disk_sizes
 
 
     def _calc_size_percentages(self):
         partitions = self.install_config['partitions']
-        disk_sizes = {}
         for partition in partitions:
             if not 'sizepercent' in partition:
                 continue
             size_percent = partition['sizepercent']
-            disk = partition.get('disk', self.install_config.get('disk', None))
-            if not disk in disk_sizes:
-                retval, disk_sizes[disk] = CommandUtils.get_disk_size_bytes(disk)
-                if retval != 0:
-                    self.logger.info("Error code: {}".format(retval))
-                    raise Exception("Failed to get disk {0} size".format(disk))
-                disk_sizes[disk] = int(disk_sizes[disk])
-            partition['size'] = int(disk_sizes[disk] * size_percent / (100 * 1024**2))
+            disk = partition.get('disk', self.install_config['disk'])
+            partition['size'] = int(self.disk_sizes[disk] * size_percent / (100 * 1024**2))
+
+
+    def _check_disk_space(self):
+        partitions = self.install_config['partitions']
+        disk_totals = {}
+        for partition in partitions:
+            disk = partition.get('disk', self.install_config['disk'])
+            if disk not in disk_totals:
+                disk_totals[disk] = 0
+            disk_totals[disk] += partition['size']
+        for disk, size in disk_totals.items():
+            disk_size = self.disk_sizes[disk] / 1024**2
+            if size > disk_size:
+                raise Exception(f"Total space requested for {disk} ({size} MB) exceeds disk size ({disk_size} MB)")
 
 
     def execute(self):
@@ -1419,11 +1441,7 @@ class Installer(object):
         # same.
         if self.ab_present:
             for disk, l2entries in ptv.items():
-                retval, total_disk_size = CommandUtils.get_disk_size_bytes(disk)
-                if retval != 0:
-                    self.logger.info("Error code: {}".format(retval))
-                    raise Exception("Failed to get disk {0} size".format(disk))
-                total_disk_size = int(total_disk_size)
+                total_disk_size = self.disk_sizes[disk]
                 is_last_partition_ab = False
                 used_size = 1 # first usable sector is 2048, 512 * 2048 = 1MB
                 for l2 in l2entries:
